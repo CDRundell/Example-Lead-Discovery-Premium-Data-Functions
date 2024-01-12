@@ -1,0 +1,88 @@
+id: f70a43f6-76b5-a98c-df0c-f947106e2854
+name: saltStrip
+description: Salt Strip using RDKit
+category: Chemistry
+version: 1.0.0
+serviceName: Script
+serviceUri: glysade.python
+executorId: Glysade.CPythonDataFxn
+inputFields:
+- control:
+    id: structureColumn
+    label: Select structure column
+    type: columnselect
+    filters:
+    - dataType: string
+      contentType:
+      - smiles
+      - chemical/x-smiles
+      - chemical/smiles
+      - chemical/x-daylight-smiles
+      - chemical/daylight-smiles
+    - dataType: binary
+      contentType:
+      - smiles
+      - chemical/x-daylight-smiles
+      - chemical/daylight-smiles
+      - chemical/x-smiles
+      - chemical/smiles
+    validationRules:
+    - type: required
+      message: Must select structure column
+  request:
+    id: structureColumn
+    dataType: string
+    selectorType: column
+tags:
+- color: '#50AF28'
+  text: chemistry
+- color: '#e2f062'
+  text: tform
+updateBehavior: automatic
+maximumOutputColumns: !!int 9999
+maximumOutputTables: !!int 0
+chemistryFunction: !!bool false
+script: |
+  from df.chem_helper import column_to_molecules
+  from df.data_transfer import DataFunctionRequest, DataFunctionResponse, DataType, string_input_field, ColumnData
+
+  from rdkit import Chem
+
+  def strip_salts(mol):
+      if mol:
+          # Split the molecule into separate fragments based on disconnected parts
+          frags = Chem.GetMolFrags(mol, asMols=True)
+          # Retrieve the largest fragment
+          largest_frag = max(frags, key=lambda x: x.GetNumAtoms())
+          return Chem.MolToSmiles(largest_frag)
+      else:
+          return None
+
+  def execute(request: DataFunctionRequest) -> DataFunctionResponse:
+      column_id = string_input_field(request, 'structureColumn')
+      input_column = request.inputColumns[column_id]
+
+
+      mols = column_to_molecules(input_column)
+
+
+      values = [None if mol is None else strip_salts(mol) for mol in mols]
+      output_column = ColumnData(name=f'{input_column.name} (Salt Stripped)', dataType=DataType.STRING, contentType='chemical/x-smiles', values=values)
+
+      response = DataFunctionResponse(outputColumns=[output_column])
+      return response
+outputFields:
+- id: structureColumn
+  source: inputField
+  type: default
+  name: Structure column
+- id: column1
+  source: column
+  type: default
+  name: Output SMILES column
+allowedClients:
+- Analyst
+- WebPlayer
+demoUrl: 
+limitBy: none
+minimumChartsVersion: 
